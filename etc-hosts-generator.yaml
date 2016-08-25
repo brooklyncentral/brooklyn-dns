@@ -1,0 +1,68 @@
+brooklyn.catalog:
+  version: "0.1.1-SNAPSHOT"
+  description: |
+    Entity that generates an '/etc/hosts' file containing the addresses
+    of a group of entities that have the 'generate.hostsFile' config key set.
+  publish:
+    license_code: APACHE-2.0
+    license_url: http://www.apache.org/licenses/LICENSE-2.0.txt
+
+  items:
+    - id: etc-hosts-generator
+      name: "etc-hosts-generator"
+      itemType: template
+      item:
+        type: org.apache.brooklyn.entity.group.DynamicGroup
+        id: hosts-group
+        name: "hosts-group"
+        brooklyn.parameters:
+          - name: domain.name
+            label: "Domain Name"
+            description: |
+              The domain name suffix to use for generated hostnames
+            default: "brooklyn.local"
+        brooklyn.config:
+          dynamicgroup.entityfilter:
+            $brooklyn:object:
+              type: org.apache.brooklyn.core.entity.EntityPredicates
+              factoryMethod.name: "configEqualTo"
+              factoryMethod.args:
+                - "generate.hostsFile"
+                - true
+        brooklyn.enrichers:
+          - type: org.apache.brooklyn.enricher.stock.MapAggregator
+            brooklyn.config:
+              uniqueTag: host-address-aggregator
+              enricher.keySensor: $brooklyn:sensor("entity.id")
+              enricher.valueSensor: $brooklyn:sensor("host.address")
+              enricher.targetSensor: $brooklyn:sensor("host.map")
+              enricher.aggregating.fromMembers: true
+          - type: org.apache.brooklyn.enricher.stock.Joiner
+            brooklyn.config:
+              uniqueTag: host-address-joiner
+              enricher.sourceSensor: $brooklyn:sensor("host.map")
+              enricher.targetSensor: $brooklyn:sensor("host.addresses")
+              enricher.joiner.quote: false
+              enricher.joiner.separator: " "
+              enricher.joiner.keyValueSeparator: "="
+              enricher.joiner.joinMapEntries: true
+        brooklyn.policies:
+          - type: org.apache.brooklyn.entity.group.SshCommandMembershipTrackingPolicy
+            brooklyn.config:
+              sensorsToTrack:
+                - $brooklyn:sensor("host.address")
+              shell.env:
+                HOST_ADDRESSES:
+                  $brooklyn:entity("hosts-group").attributeWhenReady("host.addresses")
+                DOMAIN_NAME:
+                  $brooklyn:entity("hosts-group").config("domain.name")
+              execution.target: ALL_MEMBERS
+              update.command: |
+                sudo sed -i.bk '/# BEGIN_BROOKLYN_HOSTS/,/# END_BROOKLYN_HOSTS/d' /etc/hosts
+                ( echo "# BEGIN_BROOKLYN_HOSTS"
+                  for host in ${HOST_ADDRESSES} ; do
+                    name=$(echo ${host} | cut -d= -f1)
+                    address=$(echo ${host} | cut -d= -f2)
+                    echo "${address} ${name} ${name}.${DOMAIN_NAME}"
+                  done
+                  echo "# END_BROOKLYN_HOSTS" ) | sudo tee -a /etc/hosts
