@@ -13,7 +13,8 @@ either using /etc/hosts or a dedicated BIND DNS server.
 One approach is to have Brooklyn update the `/etc/hosts` on all the servers you are interested in,
 containing the IPs and hostnames for all the servers you're interested in.
 
-To use this, simply add this to your blueprint:
+To use this, install the `brooklyn-dns-etc-hosts-generator.bom` to your catalog,
+then simply add this to your blueprint:
 
 ```
   - type: brooklyn-dns-etc-hosts-generator
@@ -35,13 +36,13 @@ As an example, see [brooklyn-dns-etc-hosts-sample.yaml](brooklyn-dns-etc-hosts-s
 
 A more scalable approach is to specify a DNS server to use on each node and update a DNS server.
 
-You can have Apache Brooklyn create a BIND DNS server for you, by including the
-[brooklyn_dns-bind-server.yaml](brooklyn_dns-bind-server.yaml) blueprint.
+To use this, install the `brooklyn-dns-bind-and-registration.bom` to your catalog.
+You can then have Apache Brooklyn create a BIND DNS server for you by including the
+`brooklyn-dns-bind-server` blueprint.
 You can have VMs registered with that DNS server by setting `brooklyn_dns.enabled: true`
 (as in the `/etc/hosts` example).
 And you can tell VMs to use the BIND DNS server by adding
-[brooklyn-dns-registration-hook.yaml](brooklyn-dns-registration-hook.yaml) as a child
-to any machine entity.
+`brooklyn-dns-registration-hook` as a child to the machine entity.
  
 This is illustrated in
 [brooklyn-dns-bind-and-registration-sample.yaml](brooklyn-dns-bind-and-registration-sample.yaml).
@@ -50,19 +51,23 @@ This is illustrated in
 
 ## When to Use Which?
 
-The former is nice in a lightweight environment as it introduces no additional dependencies.
-The latter is better in a larger environment and where nodes change frequently, to avoid SSHing to each node.
-In the latter case there is an additional requirement
-to add a child entity to any node which will need to *use* that DNS server.
+The former is nice in a lightweight environment as it introduces no additional dependencies,
+but at a cost of SSHing to each node every time any member changes.
+
+The latter is better in a larger environment and where nodes change frequently, 
+avoiding SSHing to nodes (apart from configuring `resolv.conf`), but of course
+it involves standing up an extra BIND server.
+(Note that you can share a BIND server among multiple applications,
+and the approach could be extended to work with any DNS services which expose a REST API.)
 
 
 # Future Work
 
-This is all TODO.
+This is all TODO:
 
-* subnet addresses -- in bind, and /etc/hosts
-* Allow an entity to specify multiple hostnames, configuring round-robin DNS as a result
+* Allow an entity to specify multiple hostnames, configuring round-robin DNS if a hostname
+  is used across multiple IP addresses (simple load balancing)
 * Clustered BIND servers (easy, it's just a group, collecting the IP's and inserting them at nodes;
   slightly trickier to randomize the list at each node and to update the BIND configuration at nodes)
 * Configure TTL for BIND
-* Policy for BIND servers to add the registration-hook automatically
+* Policy for BIND servers to add the registration-hook and full hostname sensors automatically

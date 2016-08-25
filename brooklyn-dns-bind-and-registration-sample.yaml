@@ -1,17 +1,49 @@
-name: Sample DNS 8
+name: BIND demo
 
 location: 
   ibm-bluebox-sng-pub 
 
 brooklyn.config:
-  brooklyn_dns.domain: brooklyn.local
-  brooklyn_dns.address: $brooklyn:entity("brooklyn_dns-bind-server").attributeWhenReady("host.address")  
-
+  # custom domain
+  brooklyn_dns.domain: brooklyn.demo.local
+  
+  # use private subnet address (not public), both for DNS's IP put in resolv.conf and for nodes' IPs in DNS
+  brooklyn_dns.address: $brooklyn:entity("brooklyn_dns-bind-server").attributeWhenReady("host.subnet.address")
+  brooklyn_dns.hosts.address.sensor: host.subnet.address
 
 services:
--
-# put brooklyn-dns-bind-server.yaml here
 
 -
-# put brooklyn-dns-registration-hook.yaml here
+    # this is the DNS server
+    type: brooklyn-dns-bind-server
 
+-
+    # and a sample server which uses the DNS server
+    type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
+    name: Sample Server which gets DNS
+
+    # this is the magic which registers us with the DNS server above
+    brooklyn.config:
+      brooklyn_dns.enabled: true
+      
+    # this is the magic which makes us *use* the DNS server above
+    brooklyn.children:
+    - type: brooklyn-dns-registration-hook
+    childStartMode: foreground
+    
+    # and now we (or anyone) can access it as follows
+    
+    shell.env:
+      MY_HOST_BASENAME: $brooklyn:attributeWhenReady("entity.id")
+      MY_HOST_DOMAIN: $brooklyn:config("brooklyn_dns.domain")
+    
+    # wait for DNS before launching
+    launch.latch: $brooklyn:entity("brooklyn_dns-bind-server").attributeWhenReady("service.isUp")
+      
+    launch.command:
+      echo "(just a sample; we're running if we can ping ourselves on the generated hostname)"
+      
+    checkRunning.command:
+      ping -c 1 ${MY_HOST_BASENAME}.${MY_HOST_DOMAIN}
+
+    # (you can also publish the full hostname for easier access, as done in brooklyn-dns-registration-hook)

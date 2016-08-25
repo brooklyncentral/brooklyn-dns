@@ -1,0 +1,130 @@
+brooklyn.catalog:
+  version: "0.1.2-SNAPSHOT"
+  description: |
+    Entities for working with BIND and DNS servers
+  publish:
+    license_code: APACHE-2.0
+    license_url: http://www.apache.org/licenses/LICENSE-2.0.txt
+
+  items:
+    - id: brooklyn-dns-bind-server
+      itemType: entity
+      item:
+
+        type: org.apache.brooklyn.entity.network.bind.BindDnsServer
+        name: Brooklyn DNS BIND Server
+        iconUrl: http://blog.webhostpython.com/wp-content/uploads/2015/09/dns.jpg
+        description: A BIND server which will automatically pick up any entity with brooklyn_dns.enabled true
+        id: brooklyn_dns-bind-server
+        
+        brooklyn.parameters:
+          - name: brooklyn_dns.domain
+            label: Domain name
+            description: |
+              The domain name suffix to use for generated hostnames
+            default: brooklyn.local
+          
+          - name: brooklyn_dns.hosts.filter.config
+            label: Filtering config key
+            description: |
+              The name of the config key set on other entities to indicate
+              that this server should pick up their address
+              (the only reason to change from the default 'brooklyn_dns.enabled' 
+              is if you are running multiple BIND servers picking up different entities)
+            default: brooklyn_dns.enabled
+          
+          - name: brooklyn_dns.hosts.basename.sensor
+            label: Basename sensor
+            description: |
+              The sensor giving the host basename on entities for which this provides name serving;
+              the domain name is appended to the basename coming from that entity
+            default: entity.id
+            
+          - name: brooklyn_dns.hosts.address.sensor
+            label: IP address sensor
+            description: |
+              The sensor giving the IP address on entities for which this provides name serving;
+              usually of the form 'host...address...', defaulting to the public IP address
+              but if all nodes are in a private subnet 'host.subnet.address' may be better
+            default: host.address
+    
+        bind.domain.name: $brooklyn:config("brooklyn_dns.domain")
+        
+        bind.sensor.hostname: $brooklyn:sensor($brooklyn:config("brooklyn_dns.hosts.basename.sensor"))
+        bind.sensor.address: $brooklyn:sensor($brooklyn:config("brooklyn_dns.hosts.address.sensor"))
+        
+        filter:
+            $brooklyn:object:
+              type: org.apache.brooklyn.core.entity.EntityPredicates
+              factoryMethod.name: "configEqualTo"
+              factoryMethod.args:
+                - $brooklyn:config("brooklyn_dns.hosts.filter.config")
+                - true
+          
+    
+        # TODO remove below this line when Aug brooklyn-library PR is merged
+        brooklyn.initializers:
+        - type: org.apache.brooklyn.core.sensor.StaticSensor
+          brooklyn.config:
+            name: bind.serial
+            static.value: 201608001
+        namedConfTemplate:
+          https://raw.githubusercontent.com/ahgittin/brooklyn-library/bind-dns-improvements/software/network/src/main/resources/org/apache/brooklyn/entity/network/bind/named.conf
+
+    - id: brooklyn-dns-registration-hook
+      itemType: entity
+      item:
+
+        type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
+        name: Brooklyn DNS Registration Hook
+        iconUrl: http://blog.webhostpython.com/wp-content/uploads/2015/09/dns.jpg
+        description: "Configures the VM to register with and use the DNS server located at the brooklyn_dns.address config key (IP address string)"
+        
+        brooklyn.parameters:
+          - name: brooklyn_dns.domain
+            label: Domain name
+            description: |
+              The domain name suffix to use for generated hostnames
+            default: brooklyn.local
+            
+          - name: brooklyn_dns.address
+            label: DNS server address
+            description: |
+              The address of the DNS server to put in resolv.conf, often an expression such as
+              '$brooklyn:entity("brooklyn_dns-bind-server").attributeWhenReady("host.address")'
+              (that is the default so if your BIND DNS server entity has id 
+              'brooklyn_dns-bind-server' and is accessible on its public IP address,
+              this config can be omitted)
+            default: $brooklyn:entity("brooklyn_dns-bind-server").attributeWhenReady("host.address")
+            
+    
+        brooklyn.config:
+          # tells our DNS server to register this node (you can set this on other nodes also) 
+          brooklyn_dns.enabled: true
+          
+        brooklyn.initializers:
+        - # publish the full hostname for convenience; anyone can then subscribe to this
+          type: org.apache.brooklyn.core.sensor.StaticSensor
+          brooklyn.config:
+            name: brooklyn_dns.host.name
+            static.value: $brooklyn:formatString("%s.%s", $brooklyn:entityId(), $brooklyn:config("brooklyn_dns.domain"))
+    
+        env:
+          # TODO make brooklyn_dns.server a parameter
+          BROOKLYN_DNS_SERVER_ADDRESS: $brooklyn:config("brooklyn_dns.address")
+          MY_HOSTNAME: $brooklyn:attributeWhenReady("brooklyn_dns.host.name")
+          
+        install.command: |
+          # put at front of resolv.conf 
+          echo nameserver $BROOKLYN_DNS_SERVER_ADDRESS | sudo cat - /etc/resolv.conf | sudo tee /etc/resolv.conf
+          # also put in this head file if resolvconf is used (to autogen the file above)
+          if [ -f /etc/resolvconf/resolv.conf.d/head ] ; then
+            echo nameserver $BROOKLYN_DNS_SERVER_ADDRESS | sudo cat - /etc/resolvconf/resolv.conf.d/head | sudo tee /etc/resolvconf/resolv.conf.d/head
+            sudo resolvconf -u
+          fi
+          
+        launch.command:
+          echo "(nothing needed to make this run, BIND should pick us up)"
+          
+        checkRunning.command:
+          ping -c 1 $MY_HOSTNAME

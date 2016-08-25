@@ -1,13 +1,15 @@
 name: /etc/hosts demo
 
-location: ibm-bluebox-sjc-pub
+location: ibm-bluebox-sng-pub
 
 brooklyn.config:
   brooklyn_dns.domain: brooklyn.local
 
 services:
   - type: brooklyn-dns-etc-hosts-generator
-
+    # use subnet IP address instead of public
+    brooklyn_dns.hosts.address.sensor: host.subnet.address
+    
   - type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
     name: Brooklyn Node s1 (pinging s2)
     id: s1
