@@ -1,0 +1,17 @@
+name: Sample DNS 8
+
+location: 
+  ibm-bluebox-sng-pub 
+
+brooklyn.config:
+  brooklyn_dns.domain: brooklyn.local
+  brooklyn_dns.address: $brooklyn:entity("brooklyn_dns-bind-server").attributeWhenReady("host.address")  
+
+
+services:
+-
+# put brooklyn-dns-bind-server.yaml here
+
+-
+# put brooklyn-dns-registration-hook.yaml here
+

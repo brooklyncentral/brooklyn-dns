@@ -1,0 +1,28 @@
+services:
+-
+    id: brooklyn_dns-bind-server
+    type: org.apache.brooklyn.entity.network.bind.BindDnsServer
+    name: Brooklyn DNS BIND Server
+    description: A BIND server which will automatically pick up any entity with brooklyn_dns.enabled true
+
+    bind.domain.name: $brooklyn:config("brooklyn_dns.domain")
+    filter:
+        $brooklyn:object:
+          type: org.apache.brooklyn.core.entity.EntityPredicates
+          factoryMethod.name: "configEqualTo"
+          factoryMethod.args:
+            - brooklyn_dns.enabled
+            - true
+      
+    hostnameSensor: $brooklyn:sensor("brooklyn_dns.host.basename")
+    # TODO configurable addressSensor
+
+    brooklyn.initializers:
+    - # TODO remove when using latest patches to bind
+      type: org.apache.brooklyn.core.sensor.StaticSensor
+      brooklyn.config:
+        name: bind.serial
+        static.value: 201608
+    # TODO remove when using latest patches to bind
+    namedConfTemplate:
+      https://raw.githubusercontent.com/ahgittin/brooklyn-library/bind-dns-improvements/software/network/src/main/resources/org/apache/brooklyn/entity/network/bind/named.conf
