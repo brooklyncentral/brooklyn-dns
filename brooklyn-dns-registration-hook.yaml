@@ -8,6 +8,10 @@ services:
     brooklyn.config:
       # tells our DNS server to register this node (you can set this on other nodes also) 
       brooklyn_dns.enabled: true
+      ## this is also needed but typically set in ancestor, referencing the IP address of the DNS server to configure
+      # brooklyn_dns.address
+      ## also needed but typically set in ancestor, giving the domain, e.g `brooklyn.local`
+      # brooklyn_dns.domain
       
     brooklyn.initializers:
     - # this is the sensor for the hostname the DNS server will register
