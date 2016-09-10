@@ -4,6 +4,7 @@ brooklyn.catalog:
     Entity that generates an '/etc/hosts' file containing the addresses
     of a group of entities that have the 'brooklyn_dns.enabled' config key set.
   publish:
+    overview: README.md
     license_code: APACHE-2.0
     license_url: http://www.apache.org/licenses/LICENSE-2.0.txt
 
@@ -11,7 +12,6 @@ brooklyn.catalog:
     - id: brooklyn-dns-etc-hosts-generator
       itemType: entity
       item:
-
         type: org.apache.brooklyn.entity.group.DynamicGroup
         name: Brooklyn DNS /etc/hosts Generation Group
         iconUrl: http://blog.webhostpython.com/wp-content/uploads/2015/09/dns.jpg
@@ -24,29 +24,64 @@ brooklyn.catalog:
               The domain name suffix to use for generated hostnames
             default: "brooklyn.local"
 
+          - name: brooklyn_dns.hosts.filter.config
+            label: "Filtering Config Key"
+            description: |
+              The name of the config key set on other entities to indicate
+              that this server should pick up their address
+            default: "brooklyn_dns.enabled"
+
           - name: brooklyn_dns.hosts.basename.sensor
-            label: Basename sensor
+            label: "Basename Sensor"
             description: |
               The sensor giving the host basename on entities for which this provides name serving;
               the domain name is appended to the basename coming from that entity
-            default: entity.id
-            
+            type: org.apache.brooklyn.api.sensor.AttributeSensor
+            default: $brooklyn:sensor("org.apache.brooklyn.core.entity.Attributes", "entity.id")
+
           - name: brooklyn_dns.hosts.address.sensor
-            label: IP address sensor
+            label: "IP Address Sensor"
             description: |
               The sensor giving the IP address on entities for which this provides name serving;
               usually of the form 'host...address...', defaulting to the public IP address
               but if all nodes are in a private subnet 'host.subnet.address' may be better
-            default: host.address
+            type: org.apache.brooklyn.api.sensor.AttributeSensor
+            default: $brooklyn:sensor("org.apache.brooklyn.core.entity.Attributes", "host.address")
+
+          - name: brooklyn_dns.entityfilter
+            label: "Entity Filter"
+            description: |
+              A predicate that will selct the entities to be added to the hosts file, the default
+              behaviour selects entities with the filtering configuration key set to true
+            type: com.google.common.base.Predicate
+            default:
+              $brooklyn:object:
+                type: org.apache.brooklyn.core.entity.EntityPredicates
+                factoryMethod.name: "configEqualTo"
+                factoryMethod.args:
+                  - "brooklyn_dns.enabled"
+                  - true
+
+          - name: brooklyn_dns.overwrite
+            label: "Overwrite Hosts File"
+            description: |
+              Set to true to overwrite the hosts file completely, otherwise append the extra
+              host information at the end of the file
+            type: boolean
+            default: true
 
         brooklyn.config:
           dynamicgroup.entityfilter:
             $brooklyn:object:
-              type: org.apache.brooklyn.core.entity.EntityPredicates
-              factoryMethod.name: "configEqualTo"
+              type: com.google.common.base.Predicates
+              factoryMethod.name: "and"
               factoryMethod.args:
-                - "brooklyn_dns.enabled"
-                - true
+                - $brooklyn:object:
+                    type: org.apache.brooklyn.core.entity.EntityPredicates
+                    factoryMethod.name: "applicationIdEqualTo"
+                    factoryMethod.args:
+                      - $brooklyn:attributeWhenReady("application.id")
+                - $brooklyn:config("brooklyn_dns.entityfilter")
 
         brooklyn.enrichers:
           - type: org.apache.brooklyn.enricher.stock.MapAggregator
@@ -72,26 +107,34 @@ brooklyn.catalog:
             brooklyn.config:
               sensor: host.addresses
               effector: updateEtcHostsOnMembers
-              
+
         brooklyn.initializers:
           - type: org.apache.brooklyn.core.effector.ssh.SshCommandEffector
             brooklyn.config:
               name: updateEtcHostsOnMembers
-              description: "Updates /etc/hosts file on all members"
+              description: |
+                Updates /etc/hosts file on all members
               executionTarget: MEMBERS
               shell.env:
                 HOST_ADDRESSES:
                   $brooklyn:entity("brooklyn-dns-etc-hosts-generator").attributeWhenReady("host.addresses")
                 DOMAIN_NAME:
                   $brooklyn:entity("brooklyn-dns-etc-hosts-generator").config("brooklyn_dns.domain")
+                OVERWRITE_HOSTS_FILE:
+                  $brooklyn:entity("brooklyn-dns-etc-hosts-generator").config("brooklyn_dns.overwrite")
               command: |
                 # use this strategy to prevent concurrent write conflicts
-                ( sed '/# BEGIN_BROOKLYN_MANAGED_HOSTS/,/# END_BROOKLYN_MANAGED_HOSTS/d' /etc/hosts
-                  echo "# BEGIN_BROOKLYN_MANAGED_HOSTS"
+                tmp_file="/tmp/etc_hosts.$$"
+                if [ "${OVERWRITE_HOSTS_FILE}" == "false" ] ; then
+                  cp /etc/hosts ${tmp_file}
+                  sed '/# BEGIN_BROOKLYN_MANAGED_HOSTS/,/# END_BROOKLYN_MANAGED_HOSTS/d' ${tmp_file}
+                fi
+                ( echo "# BEGIN_BROOKLYN_MANAGED_HOSTS"
                   for host in ${HOST_ADDRESSES} ; do
                     name=$(echo ${host} | cut -d= -f1)
                     address=$(echo ${host} | cut -d= -f2)
                     echo "${address} ${name} ${name}.${DOMAIN_NAME}"
                   done
-                  echo "# END_BROOKLYN_MANAGED_HOSTS" ) > /tmp/etc_hosts
-                sudo mv /tmp/etc_hosts /etc/hosts
+                  echo "# END_BROOKLYN_MANAGED_HOSTS"
+                ) >> ${tmp_file}
+                sudo mv ${tmp_file} /etc/hosts
