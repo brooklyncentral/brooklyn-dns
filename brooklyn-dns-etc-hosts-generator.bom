@@ -1,5 +1,5 @@
 brooklyn.catalog:
-  version: "0.1.2-SNAPSHOT"
+  version: "0.1.2" # BROOKLYN_DNS_VERSION
   description: |
     Entity that generates an '/etc/hosts' file containing the addresses
     of a group of entities that have the 'brooklyn_dns.enabled' config key set.
