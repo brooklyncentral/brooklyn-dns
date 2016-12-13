@@ -117,24 +117,27 @@ brooklyn.catalog:
               executionTarget: MEMBERS
               shell.env:
                 HOST_ADDRESSES:
-                  $brooklyn:entity("brooklyn-dns-etc-hosts-generator").attributeWhenReady("host.addresses")
+                  $brooklyn:attributeWhenReady("host.addresses")
                 DOMAIN_NAME:
                   $brooklyn:entity("brooklyn-dns-etc-hosts-generator").config("brooklyn_dns.domain")
+                ENTITY_ID:
+                  $brooklyn:entity("brooklyn-dns-etc-hosts-generator").attributeWhenReady("entity.id")
                 OVERWRITE_HOSTS_FILE:
                   $brooklyn:entity("brooklyn-dns-etc-hosts-generator").config("brooklyn_dns.overwrite")
               command: |
                 # use this strategy to prevent concurrent write conflicts
                 tmp_file="/tmp/etc_hosts.$$"
+                id=$(echo ${ENTITY_ID} | tr 'a-z' 'A-Z')
                 if [ "${OVERWRITE_HOSTS_FILE}" == "false" ] ; then
                   cp /etc/hosts ${tmp_file}
-                  sed '/# BEGIN_BROOKLYN_MANAGED_HOSTS/,/# END_BROOKLYN_MANAGED_HOSTS/d' ${tmp_file}
+                  sed '/# BEGIN_BROOKLYN_${id}_MANAGED_HOSTS/,/# END_BROOKLYN_${id}_MANAGED_HOSTS/d' ${tmp_file}
                 fi
-                ( echo "# BEGIN_BROOKLYN_MANAGED_HOSTS"
+                ( echo "# BEGIN_BROOKLYN_${id}_MANAGED_HOSTS"
                   for host in ${HOST_ADDRESSES} ; do
                     name=$(echo ${host} | cut -d= -f1)
                     address=$(echo ${host} | cut -d= -f2)
                     echo "${address} ${name} ${name}.${DOMAIN_NAME}"
                   done
-                  echo "# END_BROOKLYN_MANAGED_HOSTS"
+                  echo "# END_BROOKLYN_${id}_MANAGED_HOSTS"
                 ) >> ${tmp_file}
                 sudo mv ${tmp_file} /etc/hosts
