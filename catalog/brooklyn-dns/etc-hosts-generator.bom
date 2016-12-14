@@ -1,8 +1,7 @@
 brooklyn.catalog:
   version: "0.2.0-SNAPSHOT" # BROOKLYN_DNS_VERSION
   description: |
-    Entity that generates an '/etc/hosts' file containing the addresses
-    of a group of entities that have the 'brooklyn_dns.enabled' config key set.
+    Entities for working with BIND and DNS servers
   publish:
     overview: README.md
     license_code: APACHE-2.0
@@ -10,12 +9,16 @@ brooklyn.catalog:
 
   items:
     - id: brooklyn-dns-etc-hosts-generator
+      name: "Brooklyn DNS /etc/hosts Generator"
+      description: |
+        Entity that generates an '/etc/hosts' file containing the addresses
+        of a group of entities that have the 'brooklyn_dns.enabled' config key set.
       itemType: entity
+      iconUrl: classpath://io.brooklyn.dns:icons/dns.png
       item:
         type: org.apache.brooklyn.entity.group.DynamicGroup
-        name: Brooklyn DNS /etc/hosts Generation Group
-        iconUrl: http://blog.webhostpython.com/wp-content/uploads/2015/09/dns.jpg
         id: brooklyn-dns-etc-hosts-generator
+        name: "brooklyn-dns-etc-hosts-generator"
 
         brooklyn.parameters:
           - name: brooklyn_dns.domain
@@ -59,7 +62,7 @@ brooklyn.catalog:
                 type: org.apache.brooklyn.core.entity.EntityPredicates
                 factoryMethod.name: "configEqualTo"
                 factoryMethod.args:
-                  - "brooklyn_dns.enabled"
+                  - $brooklyn:config("brooklyn_dns.hosts.filter.config")
                   - true
 
           - name: brooklyn_dns.overwrite
@@ -116,16 +119,13 @@ brooklyn.catalog:
                 Updates /etc/hosts file on all members
               executionTarget: MEMBERS
               shell.env:
-                HOST_ADDRESSES:
-                  $brooklyn:attributeWhenReady("host.addresses")
-                DOMAIN_NAME:
-                  $brooklyn:entity("brooklyn-dns-etc-hosts-generator").config("brooklyn_dns.domain")
-                ENTITY_ID:
-                  $brooklyn:entity("brooklyn-dns-etc-hosts-generator").attributeWhenReady("entity.id")
-                OVERWRITE_HOSTS_FILE:
-                  $brooklyn:entity("brooklyn-dns-etc-hosts-generator").config("brooklyn_dns.overwrite")
+                HOST_ADDRESSES: $brooklyn:attributeWhenReady("host.addresses")
+                DOMAIN_NAME: $brooklyn:config("brooklyn_dns.domain")
+                ENTITY_ID: $brooklyn:attributeWhenReady("entity.id")
+                OVERWRITE_HOSTS_FILE: $brooklyn:config("brooklyn_dns.overwrite")
               command: |
-                # use this strategy to prevent concurrent write conflicts
+                ( # use this strategy to prevent concurrent write conflicts
+                flock 9
                 tmp_file="/tmp/etc_hosts.$$"
                 id=$(echo ${ENTITY_ID} | tr 'a-z' 'A-Z')
                 if [ "${OVERWRITE_HOSTS_FILE}" == "false" ] ; then
@@ -141,3 +141,4 @@ brooklyn.catalog:
                   echo "# END_BROOKLYN_${id}_MANAGED_HOSTS"
                 ) >> ${tmp_file}
                 sudo mv ${tmp_file} /etc/hosts
+                ) 9>> /tmp/brooklyn_dns.${ENTITY_ID}.lock

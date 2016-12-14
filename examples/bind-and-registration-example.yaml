@@ -4,19 +4,21 @@ location: ibm-bluebox-sng-pub
 
 brooklyn.config:
   # custom domain
-  brooklyn_dns.domain: "brooklyn.demo.local"
+  brooklyn_dns.domain: "brooklyn.example.org"
 
   # use private subnet address (not public), both for DNS's IP put in resolv.conf and for nodes' IPs in DNS
-  brooklyn_dns.address: $brooklyn:entity("brooklyn_dns-bind-server").attributeWhenReady("host.subnet.address")
-  brooklyn_dns.hosts.address.sensor: host.subnet.address
+  brooklyn_dns.address: $brooklyn:entity("example-bind-server").attributeWhenReady("host.subnet.address")
+  brooklyn_dns.hosts.address.sensor: "host.subnet.address"
 
 services:
   # this is the DNS server
   - type: brooklyn-dns-bind-server
+    id: example-bind-server
+    name: "Example BIND Server"
 
-  # and a sample server which uses the DNS server
+  # and a example server which uses the DNS server
   - type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
-    name: "Sample Server which gets DNS"
+    name: "Example Server which uses DNS"
 
     brooklyn.config:
       # this is the magic which registers us with the DNS server above
@@ -30,7 +32,7 @@ services:
       # (you can also publish the full hostname for easier access, as done in brooklyn-dns-registration-hook)
 
       # wait for DNS before launching
-      launch.latch: $brooklyn:entity("brooklyn_dns-bind-server").attributeWhenReady("service.isUp")
+      launch.latch: $brooklyn:entity("example-bind-server").attributeWhenReady("service.isUp")
 
       launch.command: |
         echo "(just a sample; we're running if we can ping ourselves on the generated hostname)"
