@@ -1,0 +1,144 @@
+brooklyn.catalog:
+  version: "0.2.0-SNAPSHOT" # BROOKLYN_DNS_VERSION
+  description: |
+    Entities for working with BIND and DNS servers
+  publish:
+    overview: README.md
+    license_code: APACHE-2.0
+    license_url: http://www.apache.org/licenses/LICENSE-2.0.txt
+
+  items:
+    - id: brooklyn-dns-etc-hosts-generator
+      name: "Brooklyn DNS /etc/hosts Generator"
+      description: |
+        Entity that generates an '/etc/hosts' file containing the addresses
+        of a group of entities that have the 'brooklyn_dns.enabled' config key set.
+      itemType: entity
+      iconUrl: classpath://io.brooklyn.dns:icons/dns.png
+      item:
+        type: org.apache.brooklyn.entity.group.DynamicGroup
+        id: brooklyn-dns-etc-hosts-generator
+        name: "brooklyn-dns-etc-hosts-generator"
+
+        brooklyn.parameters:
+          - name: brooklyn_dns.domain
+            label: "Domain Name"
+            description: |
+              The domain name suffix to use for generated hostnames
+            default: "brooklyn.local"
+
+          - name: brooklyn_dns.hosts.filter.config
+            label: "Filtering Config Key"
+            description: |
+              The name of the config key set on other entities to indicate
+              that this server should pick up their address
+            default: "brooklyn_dns.enabled"
+
+          - name: brooklyn_dns.hosts.basename.sensor
+            label: "Basename Sensor"
+            description: |
+              The sensor giving the host basename on entities for which this provides name serving;
+              the domain name is appended to the basename coming from that entity
+            type: org.apache.brooklyn.api.sensor.AttributeSensor
+            default: $brooklyn:sensor("org.apache.brooklyn.core.entity.Attributes", "entity.id")
+
+          - name: brooklyn_dns.hosts.address.sensor
+            label: "IP Address Sensor"
+            description: |
+              The sensor giving the IP address on entities for which this provides name serving;
+              usually of the form 'host...address...', defaulting to the public IP address
+              but if all nodes are in a private subnet 'host.subnet.address' may be better
+            type: org.apache.brooklyn.api.sensor.AttributeSensor
+            default: $brooklyn:sensor("org.apache.brooklyn.core.entity.Attributes", "host.address")
+
+          - name: brooklyn_dns.entityfilter
+            label: "Entity Filter"
+            description: |
+              A predicate that will selct the entities to be added to the hosts file, the default
+              behaviour selects entities with the filtering configuration key set to true
+            type: com.google.common.base.Predicate
+            default:
+              $brooklyn:object:
+                type: org.apache.brooklyn.core.entity.EntityPredicates
+                factoryMethod.name: "configEqualTo"
+                factoryMethod.args:
+                  - $brooklyn:config("brooklyn_dns.hosts.filter.config")
+                  - true
+
+          - name: brooklyn_dns.overwrite
+            label: "Overwrite Hosts File"
+            description: |
+              Set to true to overwrite the hosts file completely, otherwise append the extra
+              host information at the end of the file
+            type: boolean
+            default: true
+
+        brooklyn.config:
+          dynamicgroup.entityfilter:
+            $brooklyn:object:
+              type: com.google.common.base.Predicates
+              factoryMethod.name: "and"
+              factoryMethod.args:
+                - $brooklyn:object:
+                    type: org.apache.brooklyn.core.entity.EntityPredicates
+                    factoryMethod.name: "applicationIdEqualTo"
+                    factoryMethod.args:
+                      - $brooklyn:attributeWhenReady("application.id")
+                - $brooklyn:config("brooklyn_dns.entityfilter")
+
+        brooklyn.enrichers:
+          - type: org.apache.brooklyn.enricher.stock.MapAggregator
+            brooklyn.config:
+              uniqueTag: host-address-aggregator
+              enricher.keySensor: $brooklyn:sensor($brooklyn:config("brooklyn_dns.hosts.basename.sensor"))
+              enricher.valueSensor: $brooklyn:sensor($brooklyn:config("brooklyn_dns.hosts.address.sensor"))
+              enricher.targetSensor: $brooklyn:sensor("host.map")
+              enricher.aggregating.fromMembers: true
+              enricher.aggregator.excludeBlank: true
+          - type: org.apache.brooklyn.enricher.stock.Joiner
+            brooklyn.config:
+              uniqueTag: host-address-joiner
+              enricher.sourceSensor: $brooklyn:sensor("host.map")
+              enricher.targetSensor: $brooklyn:sensor("host.addresses")
+              enricher.joiner.quote: false
+              enricher.joiner.separator: " "
+              enricher.joiner.keyValueSeparator: "="
+              enricher.joiner.joinMapEntries: true
+
+        brooklyn.policies:
+          - type: org.apache.brooklyn.policy.InvokeEffectorOnSensorChange
+            brooklyn.config:
+              sensor: host.addresses
+              effector: updateEtcHostsOnMembers
+
+        brooklyn.initializers:
+          - type: org.apache.brooklyn.core.effector.ssh.SshCommandEffector
+            brooklyn.config:
+              name: updateEtcHostsOnMembers
+              description: |
+                Updates /etc/hosts file on all members
+              executionTarget: MEMBERS
+              shell.env:
+                HOST_ADDRESSES: $brooklyn:attributeWhenReady("host.addresses")
+                DOMAIN_NAME: $brooklyn:config("brooklyn_dns.domain")
+                ENTITY_ID: $brooklyn:attributeWhenReady("entity.id")
+                OVERWRITE_HOSTS_FILE: $brooklyn:config("brooklyn_dns.overwrite")
+              command: |
+                ( # use this strategy to prevent concurrent write conflicts
+                flock 9
+                tmp_file="/tmp/etc_hosts.$$"
+                id=$(echo ${ENTITY_ID} | tr 'a-z' 'A-Z')
+                if [ "${OVERWRITE_HOSTS_FILE}" == "false" ] ; then
+                  cp /etc/hosts ${tmp_file}
+                  sed '/# BEGIN_BROOKLYN_${id}_MANAGED_HOSTS/,/# END_BROOKLYN_${id}_MANAGED_HOSTS/d' ${tmp_file}
+                fi
+                ( echo "# BEGIN_BROOKLYN_${id}_MANAGED_HOSTS"
+                  for host in ${HOST_ADDRESSES} ; do
+                    name=$(echo ${host} | cut -d= -f1)
+                    address=$(echo ${host} | cut -d= -f2)
+                    echo "${address} ${name} ${name}.${DOMAIN_NAME}"
+                  done
+                  echo "# END_BROOKLYN_${id}_MANAGED_HOSTS"
+                ) >> ${tmp_file}
+                sudo mv ${tmp_file} /etc/hosts
+                ) 9>> /tmp/brooklyn_dns.${ENTITY_ID}.lock

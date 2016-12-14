@@ -1,3 +1,5 @@
+Brooklyn DNS Entities
+=====================
 
 # Overview
 
@@ -7,7 +9,6 @@ This pattern can work in any cloud or in containers, and is extremely configurab
 To use, nodes simply advertise `brooklyn_dns.enabled` and will automatically be placed under DNS management,
 either using /etc/hosts or a dedicated BIND DNS server.  
 
-
 ## Synchronizing /etc/hosts
 
 One approach is to have Brooklyn update the `/etc/hosts` on all the servers you are interested in,
@@ -16,20 +17,20 @@ containing the IPs and hostnames for all the servers you're interested in.
 To use this, install the `brooklyn-dns-etc-hosts-generator.bom` to your catalog,
 then simply add this to your blueprint:
 
-```
+```YAML
   - type: brooklyn-dns-etc-hosts-generator
 ```
 
 And then add this bit of config to every entity (or ancestor whose children you're interested in):
 
-```
+```YAML
     brooklyn.config:
       # tells the etc-hosts-generator to manage DNS on this server
       brooklyn_dns.enabled: true
 ```
 
 
-As an example, see [brooklyn-dns-etc-hosts-sample.yaml](brooklyn-dns-etc-hosts-sample.yaml).
+As an example, see [etc-hosts-generator-example.yaml](examples/etc-hosts-generator-example.yaml).
 
 
 ## Using Your Own DNS Server
@@ -44,10 +45,7 @@ You can have VMs registered with that DNS server by setting `brooklyn_dns.enable
 And you can tell VMs to use the BIND DNS server by adding
 `brooklyn-dns-registration-hook` as a child to the machine entity.
  
-This is illustrated in
-[brooklyn-dns-bind-and-registration-sample.yaml](brooklyn-dns-bind-and-registration-sample.yaml).
-
-
+This is illustrated in [bind-and-registration-example.yaml](examples/bind-and-registration-example.yaml).
 
 ## When to Use Which?
 
@@ -59,7 +57,6 @@ avoiding SSHing to nodes (apart from configuring `resolv.conf`), but of course
 it involves standing up an extra BIND server.
 (Note that you can share a BIND server among multiple applications,
 and the approach could be extended to work with any DNS services which expose a REST API.)
-
 
 # Future Work
 

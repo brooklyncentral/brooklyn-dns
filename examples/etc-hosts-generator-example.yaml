@@ -1,0 +1,48 @@
+name: "/etc/hosts demo"
+
+location: ibm-bluebox-sng-pub
+
+brooklyn.config:
+  # custom domain
+  brooklyn_dns.domain: "brooklyn.example.local"
+
+  # use subnet IP address instead of public
+  brooklyn_dns.hosts.address.sensor: host.subnet.address
+
+services:
+  - type: brooklyn-dns-etc-hosts-generator
+
+  - type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
+    name: "Brooklyn Node s1 (pinging s2)"
+    id: s1
+
+    brooklyn.config:
+      # tells the etc-hosts-generator to manage DNS on this server
+      brooklyn_dns.enabled: true
+
+      shell.env:
+        S2_HOSTNAME: $brooklyn:entity("s2").attributeWhenReady("entity.id")
+
+      launch.command: |
+        echo "(nothing needed to make this run, it's only the checkRunning we care about)"
+
+      checkRunning.command: |
+        ping -c 1 ${S2_HOSTNAME}
+
+
+  - type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
+    name: "Brooklyn Node s2 (pinging s1)"
+    id: s2
+
+    brooklyn.config:
+      # tells the etc-hosts-generator to manage DNS on this server
+      brooklyn_dns.enabled: true
+
+      shell.env:
+        S1_HOSTNAME: $brooklyn:entity("s1").attributeWhenReady("entity.id")
+
+      launch.command: |
+        echo "(nothing needed to make this run, it's only the checkRunning we care about)"
+
+      checkRunning.command: |
+        ping -c 1 ${S1_HOSTNAME}
