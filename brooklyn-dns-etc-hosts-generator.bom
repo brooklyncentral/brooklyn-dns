@@ -30,7 +30,7 @@ brooklyn.catalog:
               The sensor giving the host basename on entities for which this provides name serving;
               the domain name is appended to the basename coming from that entity
             default: entity.id
-            
+
           - name: brooklyn_dns.hosts.address.sensor
             label: IP address sensor
             description: |
@@ -72,7 +72,7 @@ brooklyn.catalog:
             brooklyn.config:
               sensor: host.addresses
               effector: updateEtcHostsOnMembers
-              
+
         brooklyn.initializers:
           - type: org.apache.brooklyn.core.effector.ssh.SshCommandEffector
             brooklyn.config:
@@ -84,8 +84,10 @@ brooklyn.catalog:
                   $brooklyn:entity("brooklyn-dns-etc-hosts-generator").attributeWhenReady("host.addresses")
                 DOMAIN_NAME:
                   $brooklyn:entity("brooklyn-dns-etc-hosts-generator").config("brooklyn_dns.domain")
+                ENTITY_ID: $brooklyn:attributeWhenReady("entity.id")
               command: |
-                # use this strategy to prevent concurrent write conflicts
+                (
+                flock 10
                 ( sed '/# BEGIN_BROOKLYN_MANAGED_HOSTS/,/# END_BROOKLYN_MANAGED_HOSTS/d' /etc/hosts
                   echo "# BEGIN_BROOKLYN_MANAGED_HOSTS"
                   for host in ${HOST_ADDRESSES} ; do
@@ -95,3 +97,4 @@ brooklyn.catalog:
                   done
                   echo "# END_BROOKLYN_MANAGED_HOSTS" ) > /tmp/etc_hosts
                 sudo mv /tmp/etc_hosts /etc/hosts
+                ) 10>> /tmp/updateEtcHosts.${ENTITY_ID}.lock
