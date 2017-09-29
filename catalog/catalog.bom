@@ -1,0 +1,5 @@
+brooklyn.catalog:
+  items:
+  - classpath://brooklyn-dns-bind-and-registration.bom
+  - classpath://brooklyn-dns-etc-hosts-generator.bom
+
