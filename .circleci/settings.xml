@@ -1,0 +1,49 @@
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd">
+    <servers>
+        <server>
+            <id>sonatype-nexus-snapshots</id>
+            <username>${env.SONATYPE_USER}</username>
+            <password>${env.SONATYPE_PASSWORD}</password>
+        </server>
+        <server>
+            <id>sonatype-nexus-staging</id>
+            <username>${env.SONATYPE_USER}</username>
+            <password>${env.SONATYPE_PASSWORD}</password>
+        </server>
+    </servers>
+
+    <profiles>
+        <profile>
+            <id>sonatype-nexus-repo</id>
+            <properties>
+                <gpg.executable>${env.GPG_EXECUTABLE}</gpg.executable>
+                <gpg.secret.key>${env.GPG_SECRET_KEY}</gpg.secret.key>
+                <gpg.passphrase>${env.GPG_PASSPHRASE}</gpg.passphrase>
+            </properties>
+            <repositories>
+                <repository>
+                    <id>sonatype-nexus-staging</id>
+                    <name>Nexus Release Repository</name>
+                    <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+                    <releases>
+                        <enabled>true</enabled>
+                    </releases>
+                </repository>
+                <repository>
+                    <id>sonatype-nexus-snapshots</id>
+                    <name>Sonatype Nexus Snapshots</name>
+                    <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
+                    <snapshots>
+                        <enabled>true</enabled>
+                    </snapshots>
+                </repository>
+            </repositories>
+        </profile>
+    </profiles>
+
+    <activeProfiles>
+        <activeProfile>sonatype-nexus-repo</activeProfile>
+    </activeProfiles>
+</settings>
