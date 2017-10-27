@@ -50,16 +50,18 @@
     <build>
         <resources>
             <resource>
-                <directory>catalog</directory>
-                <filtering>false</filtering>
+                <directory>${project.basedir}</directory>
+                <excludes>
+                    <exclude>target/**</exclude>
+                    <exclude>pom.xml</exclude>
+                    <exclude>.*/**</exclude>
+                    <exclude>src/**</exclude>
+                    <exclude>feature/**</exclude>
+                </excludes>
             </resource>
             <resource>
                 <directory>feature</directory>
                 <filtering>true</filtering>
-            </resource>
-            <resource>
-                <directory>resources</directory>
-                <filtering>false</filtering>
             </resource>
         </resources>
         <pluginManagement>
