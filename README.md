@@ -29,7 +29,7 @@ And then add this bit of config to every entity (or ancestor whose children you'
 ```
 
 
-As an example, see [brooklyn-dns-etc-hosts-sample.yaml](brooklyn-dns-etc-hosts-sample.yaml).
+As an example, see [examples/brooklyn-dns-etc-hosts-sample.yaml](brooklyn-dns-etc-hosts-sample.yaml).
 
 
 ## Using Your Own DNS Server
@@ -45,7 +45,7 @@ And you can tell VMs to use the BIND DNS server by adding
 `brooklyn-dns-registration-hook` as a child to the machine entity.
  
 This is illustrated in
-[brooklyn-dns-bind-and-registration-sample.yaml](brooklyn-dns-bind-and-registration-sample.yaml).
+[examples/brooklyn-dns-bind-and-registration-sample.yaml](brooklyn-dns-bind-and-registration-sample.yaml).
 
 
 
