@@ -23,6 +23,7 @@
         <build-helper-maven-plugin.version>3.0.0</build-helper-maven-plugin.version>
         <buildnumber-maven-plugin.version>1.4</buildnumber-maven-plugin.version>
         <maven-bundle-plugin.version>3.3.0</maven-bundle-plugin.version>
+        <maven-deploy-plugin.version>2.8.2</maven-deploy-plugin.version>
     </properties>
 
     <scm>
@@ -80,6 +81,13 @@
                     <groupId>org.apache.felix</groupId>
                     <artifactId>maven-bundle-plugin</artifactId>
                     <version>${maven-bundle-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <!-- Following the release of v 3.0.0-M1 of the deploy plug, the bundle
+                         was failing to deploy to artifactory with "401 unauthorized". The underlying
+                         problem may be as follows: https://issues.apache.org/jira/projects/MDEPLOY/issues/MDEPLOY-244 -->
+                    <artifactId>maven-deploy-plugin</artifactId>
+                    <version>${maven-deploy-plugin.version}</version>
                 </plugin>
             </plugins>
         </pluginManagement>
