@@ -13,7 +13,7 @@ brooklyn.catalog:
 
         type: org.apache.brooklyn.entity.network.bind.BindDnsServer
         name: Brooklyn DNS BIND Server
-        iconUrl: http://blog.webhostpython.com/wp-content/uploads/2015/09/dns.jpg
+        iconUrl: classpath:///dns-150x150.jpg
         description: A BIND server which will automatically pick up any entity with brooklyn_dns.enabled true
         id: brooklyn_dns-bind-server
         
@@ -77,7 +77,7 @@ brooklyn.catalog:
 
         type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
         name: Brooklyn DNS Registration Hook
-        iconUrl: http://blog.webhostpython.com/wp-content/uploads/2015/09/dns.jpg
+        iconUrl: classpath:///dns-150x150.jpg
         description: "Configures the VM to register with and use the DNS server located at the brooklyn_dns.address config key (IP address string)"
         
         brooklyn.parameters:

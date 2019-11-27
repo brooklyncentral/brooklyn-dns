@@ -14,7 +14,7 @@ brooklyn.catalog:
 
         type: org.apache.brooklyn.entity.group.DynamicGroup
         name: Brooklyn DNS /etc/hosts Generation Group
-        iconUrl: http://blog.webhostpython.com/wp-content/uploads/2015/09/dns.jpg
+        iconUrl: classpath:///dns-150x150.jpg
         id: brooklyn-dns-etc-hosts-generator
 
         brooklyn.parameters:

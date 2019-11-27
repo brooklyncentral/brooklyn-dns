@@ -64,6 +64,10 @@
                 <directory>feature</directory>
                 <filtering>true</filtering>
             </resource>
+            <resource>
+                <directory>images</directory>
+                <filtering>true</filtering>
+            </resource>
         </resources>
         <pluginManagement>
             <plugins>
