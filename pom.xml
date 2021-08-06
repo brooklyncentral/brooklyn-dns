@@ -9,12 +9,6 @@
     <version>0.2.0-SNAPSHOT</version><!--BROOKLYN_DNS_VERSION-->
     <packaging>bundle</packaging>
 
-    <parent>
-        <groupId>io.brooklyn</groupId>
-        <artifactId>brooklyncentral-parent</artifactId>
-        <version>1.0.3-SNAPSHOT</version>
-    </parent>
-
     <name>Brooklyn :: DNS</name>
     <description>These blueprints provide an easy way to ensure hostnames resolve wherever needed in an Apache Brooklyn blueprint</description>
     <url>https://github.com/brooklyncentral/brooklyn-dns</url>
@@ -160,5 +154,59 @@
                 </executions>
             </plugin>
         </plugins>
+
     </build>
+
+    <profiles>
+        <profile>
+            <id>sonatype-nexus-repo</id>
+            <activation>
+                <property>
+                    <name>deployTo</name>
+                    <value>sonatype</value>
+                </property>
+            </activation>
+            <distributionManagement>
+                <snapshotRepository>
+                    <id>sonatype-nexus-snapshots</id>
+                    <name>sonatype-nexus-snapshots</name>
+                    <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
+                    <uniqueVersion>true</uniqueVersion>
+                </snapshotRepository>
+                <repository>
+                    <id>sonatype-nexus-staging</id>
+                    <name>sonatype-nexus-staging</name>
+                    <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+                    <uniqueVersion>true</uniqueVersion>
+                </repository>
+            </distributionManagement>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>${maven-gpg-plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                                <configuration>
+                                    <secretKeyring>${gpg.secret.key}</secretKeyring>
+                                    <passphrase>${gpg.passphrase}</passphrase>
+                                    <gpgArguments>
+                                        <arg>--pinentry-mode</arg>
+                                        <arg>loopback</arg>
+                                    </gpgArguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
 </project>
